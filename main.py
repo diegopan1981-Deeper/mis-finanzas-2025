@@ -11,7 +11,7 @@ def check_password():
         st.title("🔐 Acceso Privado")
         pw = st.text_input("Introduce la contraseña", type="password")
         if st.button("Entrar"):
-            if pw == "220881": # <--- CAMBIA ESTO
+            if pw == "TU_CLAVE": # <--- CAMBIA TU_CLAVE AQUÍ
                 st.session_state["password_correct"] = True
                 st.rerun()
         return False
@@ -20,50 +20,34 @@ def check_password():
 if not check_password():
     st.stop()
 
-# --- 2. CARGA Y LIMPIEZA DE DATOS ---
-@st.cache_data # Para que la web cargue rápido
-def load_data():
-    df = pd.read_excel("Contabilidad_2025.xlsx")
-    
-    # Limpieza "Mágica": quitamos acentos y espacios en los nombres de columnas
-    df.columns = df.columns.str.strip().str.lower().str.normalize('NFKD').encode('ascii', 'ignore').decode('utf-8')
-    
-    # Intentar detectar la columna de fecha (buscamos la que se llame 'fecha')
-    col_fecha = 'fecha'
-    df[col_fecha] = pd.to_datetime(df[col_fecha], dayfirst=True, errors='coerce')
-    df = df.dropna(subset=[col_fecha]) # Quitar filas sin fecha
-    
-    # Crear columna de Mes
-    df['mes_nombre'] = df[col_fecha].dt.strftime('%B')
-    
-    # Limpiar columna de Importe (buscamos 'importe')
-    # Buscamos la columna que contenga la palabra 'importe'
-    col_money = [c for c in df.columns if 'importe' in c][0]
-    df['monto'] = pd.to_numeric(df[col_money], errors='coerce').fillna(0)
-    
-    # Limpiar Tipo de Movimiento
-    col_tipo = [c for c in df.columns if 'tipo' in c][0]
-    df['tipo'] = df[col_tipo].astype(str).str.upper()
-    
-    return df
-
+# --- 2. CARGA DE DATOS ---
 try:
-    data = load_data()
+    df = pd.read_excel("Contabilidad_2025.xlsx")
+    # Limpieza básica de nombres de columnas
+    df.columns = [c.strip() for c in df.columns]
+    
+    # Asegurar que la fecha sea válida
+    df['Fecha'] = pd.to_datetime(df['Fecha'], dayfirst=True, errors='coerce')
+    df = df.dropna(subset=['Fecha'])
+    df['Mes'] = df['Fecha'].dt.strftime('%B')
 
     # --- 3. BARRA LATERAL ---
     st.sidebar.header("Filtros")
-    todos_meses = data['mes_nombre'].unique()
-    meses_sel = st.sidebar.multiselect("Selecciona los meses", todos_meses, default=todos_meses)
+    meses_disponibles = sorted(df['Mes'].unique())
+    meses_sel = st.sidebar.multiselect("Selecciona los meses", meses_disponibles, default=meses_disponibles)
     
-    df_filtrado = data[data['mes_nombre'].isin(meses_sel)]
+    df_f = df[df['Mes'].isin(meses_sel)]
 
     # --- 4. DASHBOARD ---
-    st.title("📊 Mi Dashboard Financiero Interactivo")
+    st.title("📊 Mi Dashboard Financiero")
     
-    # Cálculos de KPI
-    # Buscamos 'I' para ingresos y 'G' para gastos (o palabras que los contengan)
-    ingresos_total = df_filtrado[df_filtrado['tipo'].str.contains('I|INGRESO')]['monto'].sum()
-    gastos_total = abs(df_filtrado[df_filtrado['tipo'].str.contains('G|GASTO')]['monto'].sum())
+    # Identificar Ingresos y Gastos
+    # (Buscamos que contenga 'I' o 'G' para ser flexibles)
+    ing_mask = df_f['Tipo Movimiento'].str.contains('I|Ingreso', case=False, na=False)
+    gas_mask = df_f['Tipo Movimiento'].str.contains('G|Gasto', case=False, na=False)
+    
+    ingresos_total = df_f[ing_mask]['Importe (€)'].sum()
+    gastos_total = abs(df_f[gas_mask]['Importe (€)'].sum())
     balance = ingresos_total - gastos_total
 
     c1, c2, c3 = st.columns(3)
@@ -77,49 +61,30 @@ try:
     col_a, col_b = st.columns(2)
 
     with col_a:
-        st.subheader("💰 Distribución de Gastos")
-        df_gastos = df_filtrado[df_filtrado['tipo'].str.contains('G|GASTO')]
+        st.subheader("💰 Gastos por Categoría")
+        df_gastos = df_f[gas_mask]
         if not df_gastos.empty:
-            # Buscamos columna de categoria
-            col_cat = [c for c in df_gastos.columns if 'categor' in c][0]
-            fig1 = px.pie(df_gastos, names=col_cat, values='monto', hole=0.4, 
-                          color_discrete_sequence=px.colors.sequential.RdBu)
+            fig1 = px.pie(df_gastos, names='Categoría', values='Importe (€)', hole=0.4)
             st.plotly_chart(fig1, use_container_width=True)
         else:
-            st.info("No hay datos de gastos para mostrar.")
+            st.info("No hay gastos registrados.")
 
     with col_b:
-        st.subheader("📅 Evolución Mensual")
-        evolucion = df_filtrado.groupby(['mes_nombre', 'tipo'])['monto'].sum().abs().reset_index()
-        if not evolucion.empty:
-            fig2 = px.bar(evolucion, x='mes_nombre', y='monto', color='tipo', barmode='group',
-                         color_discrete_map={'INGRESO (I)': '#00CC96', 'GASTO (G)': '#EF553B'})
-            st.plotly_chart(fig2, use_container_width=True)
-        else:
-            st.info("No hay datos suficientes para la gráfica temporal.")
+        st.subheader("📅 Evolución")
+        df_ev = df_f.groupby(['Mes', 'Tipo Movimiento'])['Importe (€)'].sum().abs().reset_index()
+        fig2 = px.bar(df_ev, x='Mes', y='Importe (€)', color='Tipo Movimiento', barmode='group')
+        st.plotly_chart(fig2, use_container_width=True)
 
-    # --- 6. IA CHAT INTERFACE ---
+    # --- 6. IA CHAT ---
     st.markdown("---")
     st.subheader("🤖 Consulta a tu IA")
-    pregunta = st.chat_input("¿En qué categoría he gastado más?")
+    pregunta = st.chat_input("Escribe tu pregunta aquí...")
     if pregunta:
         with st.chat_message("user"):
             st.write(pregunta)
         with st.chat_message("assistant"):
-            st.write("Estoy analizando tus datos... Para darte una respuesta real necesito que conectemos una API de IA.")
+            st.write("Analizando datos... (Conexión con IA pendiente)")
 
 except Exception as e:
-    st.error(f"Se ha producido un error al leer el Excel: {e}")
-    st.info("Asegúrate de que las columnas del Excel sean: Fecha, Concepto, Categoría, Importe (€), Tipo Movimiento")
-# --- FINAL DEL BLOQUE DE LA IA ---
-    if pregunta:
-        with st.chat_message("user"):
-            st.write(pregunta)
-        with st.chat_message("assistant"):
-            st.write("Estoy analizando tus datos... Para darte una respuesta real necesito que conectemos una API de IA.")
-
-# --- AQUÍ ESTÁ LO QUE FALTABA PARA CERRAR EL ERROR ---
-except Exception as e:
-    st.error(f"Se ha producido un error al leer el Excel: {e}")
-    st.info("Asegúrate de que las columnas del Excel sean: Fecha, Concepto, Categoría, Importe (€), Tipo Movimiento")
-
+    st.error(f"Error técnico: {e}")
+    st.info("Revisa que tu Excel tenga estas columnas exactas: Fecha, Concepto, Categoría, Importe (€), Tipo Movimiento")
