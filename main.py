@@ -20,10 +20,17 @@ def check_password():
 if not check_password():
     st.stop()
 
-# --- 2. CONFIGURACIÓN DE LA IA (GEMINI) ---
+# --- 2. CONFIGURACIÓN DE LA IA (MODO ULTRA-COMPATIBLE) ---
 genai.configure(api_key="AIzaSyAKiZEkaC-8uON4dYq92LOV7sQgOk-Ns3g")
-model = genai.GenerativeModel('gemini-pro')
 
+# Intentamos cargar el modelo más compatible
+try:
+    model = genai.GenerativeModel('gemini-1.5-flash')
+except:
+    try:
+        model = genai.GenerativeModel('models/gemini-1.5-flash')
+    except:
+        model = genai.GenerativeModel('gemini-pro')
 # --- 3. CARGA DE DATOS ---
 try:
     df = pd.read_excel("Contabilidad_2025.xlsx")
@@ -105,6 +112,7 @@ try:
 except Exception as e:
     st.error(f"Hubo un problema al cargar los datos: {e}")
     
+
 
 
 
