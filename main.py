@@ -11,7 +11,7 @@ def check_password():
         st.title("🔐 Acceso Privado")
         pw = st.text_input("Introduce la contraseña", type="password")
         if st.button("Entrar"):
-            if pw == "TU_CLAVE_AQUI": # <--- CAMBIA ESTO
+            if pw == "220881": # <--- CAMBIA ESTO
                 st.session_state["password_correct"] = True
                 st.rerun()
         return False
@@ -122,3 +122,4 @@ except Exception as e:
 except Exception as e:
     st.error(f"Se ha producido un error al leer el Excel: {e}")
     st.info("Asegúrate de que las columnas del Excel sean: Fecha, Concepto, Categoría, Importe (€), Tipo Movimiento")
+
