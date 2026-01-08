@@ -11,7 +11,7 @@ def check_password():
         st.title("🔐 Acceso Privado")
         pw = st.text_input("Introduce la contraseña", type="password")
         if st.button("Entrar"):
-            if pw == "TU_CLAVE": # <--- CAMBIA ESTO POR TU CONTRASEÑA DE ACCESO
+            if pw == "2208": # <--- CAMBIA ESTO POR TU CONTRASEÑA DE ACCESO
                 st.session_state["password_correct"] = True
                 st.rerun()
         return False
@@ -105,4 +105,5 @@ try:
 except Exception as e:
     st.error(f"Hubo un problema al cargar los datos: {e}")
     
+
 
