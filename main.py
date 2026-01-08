@@ -2,58 +2,64 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
-st.set_page_config(page_title="Mis Finanzas Pro", layout="wide")
+# Configuración de página
+st.set_page_config(page_title="Mi IA Financiera", layout="wide")
 
-nombre_archivo = "Contabilidad_2025.xlsx" 
+# --- 1. SEGURIDAD ---
+def check_password():
+    if "password_correct" not in st.session_state:
+        st.title("🔐 Acceso Privado")
+        pw = st.text_input("Introduce la contraseña", type="password")
+        if st.button("Entrar"):
+            if pw == "TU_CLAVE_AQUI": # <--- CAMBIA ESTO
+                st.session_state["password_correct"] = True
+                st.rerun()
+        return False
+    return True
+
+if not check_password():
+    st.stop()
+
+# --- 2. CARGA Y LIMPIEZA DE DATOS ---
+@st.cache_data # Para que la web cargue rápido
+def load_data():
+    df = pd.read_excel("Contabilidad_2025.xlsx")
+    
+    # Limpieza "Mágica": quitamos acentos y espacios en los nombres de columnas
+    df.columns = df.columns.str.strip().str.lower().str.normalize('NFKD').encode('ascii', 'ignore').decode('utf-8')
+    
+    # Intentar detectar la columna de fecha (buscamos la que se llame 'fecha')
+    col_fecha = 'fecha'
+    df[col_fecha] = pd.to_datetime(df[col_fecha], dayfirst=True, errors='coerce')
+    df = df.dropna(subset=[col_fecha]) # Quitar filas sin fecha
+    
+    # Crear columna de Mes
+    df['mes_nombre'] = df[col_fecha].dt.strftime('%B')
+    
+    # Limpiar columna de Importe (buscamos 'importe')
+    # Buscamos la columna que contenga la palabra 'importe'
+    col_money = [c for c in df.columns if 'importe' in c][0]
+    df['monto'] = pd.to_numeric(df[col_money], errors='coerce').fillna(0)
+    
+    # Limpiar Tipo de Movimiento
+    col_tipo = [c for c in df.columns if 'tipo' in c][0]
+    df['tipo'] = df[col_tipo].astype(str).str.upper()
+    
+    return df
 
 try:
-    # 1. Cargar datos
-    df = pd.read_excel(nombre_archivo)
-    
-    # Limpiar espacios en los nombres de las columnas
-    df.columns = df.columns.str.strip()
+    data = load_data()
 
-    # 2. CREAR LA COLUMNA 'MES' (Esto soluciona tu error)
-    # Convertimos la columna Fecha a formato de fecha real y extraemos el nombre del mes
-    df['Fecha'] = pd.to_datetime(df['Fecha'], dayfirst=True)
-    df['Mes'] = df['Fecha'].dt.strftime('%m - %B') # Crea algo como "01 - January"
-
-    # --- BARRA LATERAL (FILTROS) ---
+    # --- 3. BARRA LATERAL ---
     st.sidebar.header("Filtros")
+    todos_meses = data['mes_nombre'].unique()
+    meses_sel = st.sidebar.multiselect("Selecciona los meses", todos_meses, default=todos_meses)
     
-    # Filtro de Mes
-    lista_meses = sorted(df['Mes'].unique())
-    mes_sel = st.sidebar.multiselect("Selecciona el Mes", lista_meses, default=lista_meses)
+    df_filtrado = data[data['mes_nombre'].isin(meses_sel)]
+
+    # --- 4. DASHBOARD ---
+    st.title("📊 Mi Dashboard Financiero Interactivo")
     
-    # Filtro de Categoría
-    lista_cat = sorted(df['Categoría'].unique())
-    cat_sel = st.sidebar.multiselect("Selecciona Categoría", lista_cat, default=lista_cat)
-
-    # Aplicar Filtros
-    df_filtrado = df[(df['Mes'].isin(mes_sel)) & (df['Categoría'].isin(cat_sel))]
-
-    # --- CUERPO DEL DASHBOARD ---
-    st.title("💰 Mi Dashboard Financiero 2025")
-    
-    # Cálculos usando tus columnas exactas: 'Importe (€)' y 'Tipo Movimiento'
-    ingresos = df_filtrado[df_filtrado['Tipo Movimiento'] == 'Ingreso (I)']['Importe (€)'].sum()
-    gastos = df_filtrado[df_filtrado['Tipo Movimiento'] == 'Gasto (G)']['Importe (€)'].sum()
-    ahorro = ingresos + gastos
-    
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Ingresos Totales", f"{ingresos:,.2f} €")
-    col2.metric("Gastos Totales", f"{abs(gastos):,.2f} €")
-    col3.metric("Ahorro Neto", f"{ahorro:,.2f} €")
-
-    # Gráfico de tarta
-    st.subheader("Gastos por Categoría")
-    df_g = df_filtrado[df_filtrado['Tipo Movimiento'] == 'Gasto (G)']
-    fig = px.pie(df_g, values='Importe (€)', names='Categoría', hole=0.4)
-    st.plotly_chart(fig, use_container_width=True)
-
-    # Tabla de datos para verificar
-    st.subheader("Lista de Movimientos")
-    st.dataframe(df_filtrado, use_container_width=True)
-
-except Exception as e:
-    st.error(f"Se ha producido un error: {e}")
+    # Cálculos de KPI
+    # Buscamos 'I' para ingresos y 'G' para gastos (o palabras que los contengan)
+    ingresos_total
