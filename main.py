@@ -11,7 +11,7 @@ def check_password():
         st.title("🔐 Acceso Privado")
         pw = st.text_input("Introduce la contraseña", type="password")
         if st.button("Entrar"):
-            if pw == "TU_CLAVE_AQUI": # <--- CAMBIA ESTO
+            if pw == "220881": # <--- CAMBIA ESTO
                 st.session_state["password_correct"] = True
                 st.rerun()
         return False
@@ -63,3 +63,4 @@ try:
     # Cálculos de KPI
     # Buscamos 'I' para ingresos y 'G' para gastos (o palabras que los contengan)
     ingresos_total
+
