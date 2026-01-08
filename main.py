@@ -22,7 +22,7 @@ if not check_password():
 
 # --- 2. CONFIGURACIÓN DE LA IA (GEMINI) ---
 genai.configure(api_key="AIzaSyAKiZEkaC-8uON4dYq92LOV7sQgOk-Ns3g")
-model = genai.GenerativeModel('gemini-1.5-flash')
+model = genai.GenerativeModel('gemini-1.5-flash-latest')
 
 # --- 3. CARGA DE DATOS ---
 try:
@@ -105,5 +105,6 @@ try:
 except Exception as e:
     st.error(f"Hubo un problema al cargar los datos: {e}")
     
+
 
 
